@@ -2,6 +2,19 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.preprocessing import LabelEncoder
+from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import (
+    pairwise_distances, classification_report, confusion_matrix,
+    accuracy_score, mean_absolute_error, mean_squared_error, max_error, r2_score
+)
+import numpy as np
 
 # Definir função de plotagem no Streamlit
 def plot(xValues, yValues, annotate, number_formatting, title, xLabel, yLabel):
@@ -25,6 +38,117 @@ def plot(xValues, yValues, annotate, number_formatting, title, xLabel, yLabel):
 
 # Simular dados (substitua pelo carregamento do seu dataset real)
 df=df = pd.read_csv('datatran_tratado.csv')
+
+df_new = df.copy() # cria uma cópia do df original
+
+df_new['data_inversa'] = pd.to_datetime(df_new['data_inversa']) # Formata a data para evitar inconsistências
+df_new['horario'] = pd.to_datetime(df_new['horario'], format='%H:%M:%S').dt.time # Formata o horário para evitar inconsistências
+
+df_new['month'] = df_new['data_inversa'].dt.month # Gera uma nova coluna com o dia em que o acidente aconteceu
+df_new['day'] = df_new['data_inversa'].dt.day # Gera uma nova coluna com o dia em que o acidente aconteceu
+df_new['hour'] = pd.to_datetime(df_new['horario'], format='%H:%M:%S').dt.hour # Gera uma nova coluna com a hora em que o acidente aconteceu
+
+df_new['km'] = df_new['km'].str.replace(',', '.').astype(float) # Formata a coluna 'km' convertendo todos os seus valores para float
+
+# Usa a técnica de Enconding para variáveis categóricas ordinais para transformar as strings object dos dias da semana para números int32
+le = LabelEncoder()
+
+colunas_para_label_encode = ['uf', 'causa_acidente', 'tipo_acidente',
+    'sentido_via','classificacao_acidente', 'tracado_via', 'condicao_metereologica',
+    'tipo_pista', 'regional', "dia_semana", "fase_dia", "br", "uso_solo"]
+
+for coluna in colunas_para_label_encode:
+  df_new[coluna] = le.fit_transform(df_new[coluna])
+
+# Selecionar características e alvo
+X = df_new[['causa_acidente', 'tipo_acidente', 'condicao_metereologica', 'veiculos', 'tracado_via', 'dia_semana', 'fase_dia', 'tipo_pista', 'sentido_via', 'uso_solo',
+        'pessoas', 'latitude', 'longitude', 'br', 'km']]
+y = df_new['classificacao_acidente']
+
+print(y.value_counts())
+
+smote = SMOTE()
+X_resampled, y_resampled = smote.fit_resample(X, y)
+
+X = X_resampled
+y = y_resampled
+
+print(y.value_counts())
+
+# Separar em conjuntos de treinamento e teste
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Lista de modelos a serem testados
+models = {
+    'KNeighborsClassifier': KNeighborsClassifier(n_neighbors=3),
+    'RandomForestClassifier': RandomForestClassifier(),
+    'DecisionTreeClassifier': DecisionTreeClassifier()
+}
+
+# Dicionário para armazenar os resultados
+results = {}
+
+# Testar cada modelo
+for model_name, model in models.items():
+    # Criar um pipeline com escalação e o modelo
+    pipeline = Pipeline([
+        ('scaler', StandardScaler()),  # Escalonamento dos dados
+        ('classifier', model)
+    ])
+
+    # Treinar o modelo
+    pipeline.fit(X_train, y_train)
+
+    # Fazer previsões
+    y_pred = pipeline.predict(X_test)
+
+    # Avaliar o modelo
+    report = classification_report(y_test, y_pred, output_dict=True)
+    results[model_name] = report
+
+# Exibir os resultados
+for model_name, report in results.items():
+    print(f"Resultados para {model_name}:")
+    print(f"Acurácia: {report['accuracy']:.2f}")
+    print(f"Precisão: {report['weighted avg']['precision']:.2f}")
+    print(f"Recall: {report['weighted avg']['recall']:.2f}")
+    print(f"F1-Score: {report['weighted avg']['f1-score']:.2f}\n")
+
+model = RandomForestClassifier()
+
+# Definindo o K-Fold
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+# Calculando as scores de validação cruzada
+scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
+
+print(f'Scores de Validação Cruzada: {scores}')
+print(f'Média da Acurácia: {scores.mean()}')
+
+model.fit(X_train, y_train)
+
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+y_pred = model.predict(X_test)  # Substitua por seu conjunto de teste
+cm = confusion_matrix(y_test, y_pred)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.xlabel('Predito')
+plt.ylabel('Real')
+plt.title('Matriz de Confusão')
+plt.show()
+
+importances = model.feature_importances_
+indices = np.argsort(importances)[::-1]
+features = X.columns  # Substitua se necessário
+
+plt.figure()
+plt.title('Importância das Características')
+plt.bar(range(X.shape[1]), importances[indices], align='center')
+plt.xticks(range(X.shape[1]), features[indices], rotation=90)
+plt.xlim([-1, X.shape[1]])
+plt.show()
 # Título do App
 st.title("Análise de Acidentes de Trânsito")
 
@@ -102,4 +226,23 @@ elif visualizacao == 'Acidentes Graves por Regiao':
     regionais_graves = acidentes_por_regional[acidentes_por_regional['gravidade_acidente'] == 'Grave'].sort_values(by='contagem', ascending=False)
     plot(xValues=regionais_graves['regional'], yValues=regionais_graves['contagem'], annotate=True, number_formatting='0.1f', title="Regiões com Mais Acidentes Graves", xLabel="Regionais", yLabel="Quantidade de Acidentes Graves")
 
+elif visualizacao == 'Hipótese 2':
+    y_pred = model.predict(X_test)  # Substitua por seu conjunto de teste
+    cm = confusion_matrix(y_test, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.xlabel('Predito')
+    plt.ylabel('Real')
+    plt.title('Matriz de Confusão')
+    plt.show()
+
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    features = X.columns  # Substitua se necessário
+
+    plt.figure()
+    plt.title('Importância das Características')
+    plt.bar(range(X.shape[1]), importances[indices], align='center')
+    plt.xticks(range(X.shape[1]), features[indices], rotation=90)
+    plt.xlim([-1, X.shape[1]])
+    plt.show()
     
