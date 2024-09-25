@@ -79,51 +79,51 @@ print(y.value_counts())
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
 # Lista de modelos a serem testados
-models = {
-    'KNeighborsClassifier': KNeighborsClassifier(n_neighbors=3),
-    'RandomForestClassifier': RandomForestClassifier(),
-    'DecisionTreeClassifier': DecisionTreeClassifier()
-}
+# models = {
+#     'KNeighborsClassifier': KNeighborsClassifier(n_neighbors=3),
+#     'RandomForestClassifier': RandomForestClassifier(),
+#     'DecisionTreeClassifier': DecisionTreeClassifier()
+# }
 
-# Dicionário para armazenar os resultados
-results = {}
+# # Dicionário para armazenar os resultados
+# results = {}
 
-# Testar cada modelo
-for model_name, model in models.items():
-    # Criar um pipeline com escalação e o modelo
-    pipeline = Pipeline([
-        ('scaler', StandardScaler()),  # Escalonamento dos dados
-        ('classifier', model)
-    ])
+# # Testar cada modelo
+# for model_name, model in models.items():
+#     # Criar um pipeline com escalação e o modelo
+#     pipeline = Pipeline([
+#         ('scaler', StandardScaler()),  # Escalonamento dos dados
+#         ('classifier', model)
+#     ])
 
-    # Treinar o modelo
-    pipeline.fit(X_train, y_train)
+#     # Treinar o modelo
+#     pipeline.fit(X_train, y_train)
 
-    # Fazer previsões
-    y_pred = pipeline.predict(X_test)
+#     # Fazer previsões
+#     y_pred = pipeline.predict(X_test)
 
-    # Avaliar o modelo
-    report = classification_report(y_test, y_pred, output_dict=True)
-    results[model_name] = report
+#     # Avaliar o modelo
+#     report = classification_report(y_test, y_pred, output_dict=True)
+#     results[model_name] = report
 
-# Exibir os resultados
-for model_name, report in results.items():
-    print(f"Resultados para {model_name}:")
-    print(f"Acurácia: {report['accuracy']:.2f}")
-    print(f"Precisão: {report['weighted avg']['precision']:.2f}")
-    print(f"Recall: {report['weighted avg']['recall']:.2f}")
-    print(f"F1-Score: {report['weighted avg']['f1-score']:.2f}\n")
+# # Exibir os resultados
+# for model_name, report in results.items():
+#     print(f"Resultados para {model_name}:")
+#     print(f"Acurácia: {report['accuracy']:.2f}")
+#     print(f"Precisão: {report['weighted avg']['precision']:.2f}")
+#     print(f"Recall: {report['weighted avg']['recall']:.2f}")
+#     print(f"F1-Score: {report['weighted avg']['f1-score']:.2f}\n")
 
 model = RandomForestClassifier()
 
 # Definindo o K-Fold
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
-# Calculando as scores de validação cruzada
-scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
+# # Calculando as scores de validação cruzada
+# scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
 
-print(f'Scores de Validação Cruzada: {scores}')
-print(f'Média da Acurácia: {scores.mean()}')
+# print(f'Scores de Validação Cruzada: {scores}')
+# print(f'Média da Acurácia: {scores.mean()}')
 
 model.fit(X_train, y_train)
 
@@ -131,26 +131,6 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-y_pred = model.predict(X_test)  # Substitua por seu conjunto de teste
-cm = confusion_matrix(y_test, y_pred)
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-plt.xlabel('Predito')
-plt.ylabel('Real')
-plt.title('Matriz de Confusão')
-plt.show()
-
-importances = model.feature_importances_
-indices = np.argsort(importances)[::-1]
-features = X.columns  # Substitua se necessário
-
-plt.figure()
-plt.title('Importância das Características')
-plt.bar(range(X.shape[1]), importances[indices], align='center')
-plt.xticks(range(X.shape[1]), features[indices], rotation=90)
-plt.xlim([-1, X.shape[1]])
-plt.show()
-# Título do App
-st.title("Análise de Acidentes de Trânsito")
 
 # Sidebar para seleção de visualização
 st.sidebar.title("Analise exploratoria")
@@ -162,7 +142,8 @@ visualizacao = st.sidebar.selectbox("Escolha a visualização de dados:",
                                      'Quantidade Média de Veículos por Gravidade do Acidente',
                                      'Acidentes por Dia da Semana',
                                      'Causas de Acidentes por Dia da Semana',
-                                     'Acidentes Graves por Regiao'])
+                                     'Acidentes Graves por Regiao',
+                                     'Hipótese 2'])
 
 # Lógica para exibir os gráficos com base na escolha do usuário
 if visualizacao == 'Acidentes por Condição Meteorológica':
@@ -234,6 +215,7 @@ elif visualizacao == 'Hipótese 2':
     plt.ylabel('Real')
     plt.title('Matriz de Confusão')
     plt.show()
+    st.pyplot(plt)
 
     importances = model.feature_importances_
     indices = np.argsort(importances)[::-1]
@@ -245,4 +227,6 @@ elif visualizacao == 'Hipótese 2':
     plt.xticks(range(X.shape[1]), features[indices], rotation=90)
     plt.xlim([-1, X.shape[1]])
     plt.show()
+
+    st.pyplot(plt)
     
